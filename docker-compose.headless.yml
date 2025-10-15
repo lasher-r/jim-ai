@@ -1,0 +1,23 @@
+version: "3.3"
+services:
+  gym-nano:
+    build: .
+    image: gym-nano:jp46
+    network_mode: host
+    ipc: host
+    working_dir: /workspace
+    restart: unless-stopped
+    environment:
+      - CAM_INDEX=0
+      - WIDTH=640
+      - HEIGHT=480
+      - ROTATE=0        # change to 90/180/270 if your cam is portrait/sideways
+      - JPEG_QUALITY=70
+      - FPS=20
+      - PORT=5000
+    volumes:
+      - ./:/workspace
+      - /tmp/argus_socket:/tmp/argus_socket
+    devices:
+      - "/dev/video0:/dev/video0"
+    command: bash -lc "python3 web_stream_overlay.py"

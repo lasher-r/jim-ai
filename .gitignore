@@ -1,0 +1,25 @@
+# python
+__pycache__/
+*.pyc
+
+# docker
+*.log
+logs/
+**/.DS_Store
+
+# runtime artifacts
+snapshots/
+data/
+*.jpg
+*.png
+
+# models (keep configs/names; ignore big weights)
+models/**/*
+!models/**/*.cfg
+!models/**/*.names
+*.weights
+
+# env + editor
+.env
+.vscode/
+.idea/

@@ -1,0 +1,18 @@
+version: "3.7"
+services:
+  gym-nano:
+    image: nvcr.io/nvidia/l4t-pytorch:r32.7.1-pth1.10-py3
+    runtime: nvidia
+    network_mode: host
+    ipc: host
+    working_dir: /workspace
+    environment:
+      - DISPLAY           # inherits your SSH -Y DISPLAY value
+    volumes:
+      - ./:/workspace
+      - /tmp/argus_socket:/tmp/argus_socket
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.Xauthority:/root/.Xauthority:ro
+    devices:
+      - "/dev/video0:/dev/video0"
+    command: bash -lc "python3 smoke_gui.py"
