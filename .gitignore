@@ -23,3 +23,10 @@ models/**/*
 .env
 .vscode/
 .idea/
+# Engines / models / builds
+tensorrt_demos/yolo/*.trt
+tensorrt_demos/yolo/*.onnx
+tensorrt_demos/yolo/*.cache
+models/yolo/*.weights
+*.pyc
+__pycache__/
