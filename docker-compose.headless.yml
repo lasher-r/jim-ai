@@ -15,6 +15,7 @@ services:
       - JPEG_QUALITY=70
       - FPS=20
       - PORT=5000
+      - LD_LIBRARY_PATH=/workspace/tensorrt_demos/plugins:/usr/src/tensorrt/lib:/usr/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu/tegra
     volumes:
       - ./:/workspace
       - /tmp/argus_socket:/tmp/argus_socket

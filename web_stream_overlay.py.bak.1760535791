@@ -4,19 +4,6 @@ import os, time, cv2
 from flask import Flask, Response, request, jsonify, send_file
 app = Flask(__name__)
 
-from trt_yolo_runtime import TRTDetector
-_trt = None
-def trt_load():
-    global _trt
-    if _trt is None:
-        _trt = TRTDetector(
-            "tensorrt_demos/yolo/yolov4-tiny-416.trt",
-            model='yolov4-tiny',
-            category_num=80,
-            letter_box=True,   # this matches the engine we rebuilt
-        )
-    return _trt
-
 # Env defaults (override via compose)
 CAM_INDEX = int(os.getenv("CAM_INDEX", "0"))
 DEF_W     = int(os.getenv("WIDTH", "640"))
@@ -33,6 +20,10 @@ MASKS = [
 ]
 
 def masked(x,y,w,h, W,H):
+    for x1,y1,x2,y2 in MASKS:
+        X1,Y1,X2,Y2 = int(W*x1), int(H*y1), int(W*x2), int(H*y2)
+        if not (x+w < X1 or x > X2 or y+h < Y1 or y > Y2):
+            return True
     return False
 
 def pass_person_filters(x,y,w,h, conf, W,H, *, min_area_pct, floor_frac, ar_lo, ar_hi, conf_min=0.45):
@@ -222,10 +213,6 @@ def mjpeg():
                 # FPS smoothing
                 dt = now - t_last; t_last = now
                 fps_sm = 0.9*fps_sm + 0.1*(1.0/max(dt,1e-3))
-                
-                # cache between frames so we don't re-detect every time
-                last_dets = []
-                last_classes = None
 
                 if mode == "motion":
                     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -248,36 +235,52 @@ def mjpeg():
 
                 elif mode == "yolo":
                     H, W = frame.shape[:2]
-                    if 'last_dets' not in locals():
-                        last_dets = []
-                    run_now = (frame_i % (skip+1) == 0)
-                    if run_now:
-                        try:
-                            det = trt_load()
-                            dets_raw = det.infer(frame)   # (x,y,w,h, conf, cls_id)
-                            last_dets = [(cid, conf, (x,y,w,h)) for (x,y,w,h, conf, cid) in dets_raw]
-                        except Exception as e:
-                            # keep previous detections on transient failure
-                            pass
+
+                    def draw_hits(hits):
+                        for x,y,wc,hc, conf, lbl in hits:
+                            color = (0,255,255) if lbl == "person" else (255,0,0)
+                            cv2.rectangle(frame, (x,y), (x+wc, y+hc), color, 2)
+                            tag = f"{lbl}:{conf:.2f}" if conf is not None else f"{lbl}"
+                            cv2.putText(frame, tag, (x, max(20,y-6)),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 3, cv2.LINE_AA)
+                            cv2.putText(frame, tag, (x, max(20,y-6)),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1, cv2.LINE_AA)
 
                     hits = []
-                    for cid, conf, (x,y,wc,hc) in (last_dets or []):
-                        if cid != 0:   # COCO 'person'
-                            continue
-                        # pad box a bit so head/feet aren’t clipped
-                        pad = 0.15
-                        x  = max(0, int(x - pad*wc)); y = max(0, int(y - pad*hc))
-                        wc = min(int(wc*(1+2*pad)), W - x); hc = min(int(hc*(1+2*pad)), H - y)
-                        hits.append((x,y,wc,hc, conf, "person"))
 
-                    for x,y,wc,hc, conf, lbl in hits:
-                        cv2.rectangle(frame, (x,y), (x+wc, y+hc), (0,255,255), 2)
-                        tag = f"{lbl}:{conf:.2f}"
-                        cv2.putText(frame, tag, (x, max(20,y-6)),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 3, cv2.LINE_AA)
-                        cv2.putText(frame, tag, (x, max(20,y-6)),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1, cv2.LINE_AA)
-            
+                    try:
+                        # Run YOLO every (skip+1) frames for speed
+                        if frame_i % (skip+1) == 0:
+                            dets, classes = yolo_detect(frame, conf_th=conf_th, nms_th=nms_th, size=yolo_size)
+                            for cid, conf, (x,y,wc,hc) in dets:
+                                lbl = classes[cid] if 0 <= cid < len(classes) else str(cid)
+                                if lbl != "person":
+                                    continue
+                                if masked(x,y,wc,hc, W,H):
+                                    continue
+                                if not pass_person_filters(x,y,wc,hc, conf, W,H,
+                                        min_area_pct=min_area_pct, floor_frac=floor_frac,
+                                        ar_lo=ar_lo, ar_hi=ar_hi):
+                                    continue
+                                hits.append((x,y,wc,hc, conf, lbl))
+
+                    except Exception:
+                        # Fallback to HOG person detector if cv2.dnn isn't available
+                        rects = hog_person_detect(frame, stride=(hog_stride,hog_stride), scale=hog_scale)
+                        for lbl, conf, (x,y,wc,hc) in rects:
+                            if masked(x,y,wc,hc, W,H):
+                                continue
+                            if not pass_person_filters(x,y,wc,hc, None, W,H,
+                                    min_area_pct=min_area_pct, floor_frac=floor_frac,
+                                    ar_lo=ar_lo, ar_hi=ar_hi):
+                                continue
+                            hits.append((x,y,wc,hc, float(conf), lbl))
+
+                    # Debounce: only draw if we’ve had >= `confirm` hit-frames recently
+                    memory.append(bool(hits))
+                    if sum(memory) >= confirm:
+                        draw_hits(hits)
+
                 annotate(frame, f"FPS:{fps_sm:.1f} MODE:{mode.upper()}")
 
                 ok, buf = cv2.imencode(".jpg", frame, enc)

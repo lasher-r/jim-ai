@@ -1,0 +1,15 @@
+services:
+  gym-nano:
+    image: nvcr.io/nvidia/l4t-pytorch:r32.7.1-pth1.10-py3
+    runtime: nvidia
+    network: host
+    ipc: host
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /tmp/argus_socket:/tmp/argus_socket
+      - ${PWD}:/workspace
+    devices:
+      - /dev/video0:/dev/video0
+    working_dir: /workspace
