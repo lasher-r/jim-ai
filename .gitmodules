@@ -1,0 +1,3 @@
+[submodule "tensorrt_demos"]
+	path = tensorrt_demos
+	url = https://github.com/jkjung-avt/tensorrt_demos.git
