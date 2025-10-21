@@ -19,6 +19,7 @@ services:
     volumes:
       - ./:/workspace
       - /tmp/argus_socket:/tmp/argus_socket
+      - ./ui:/workspace/ui:ro
     devices:
       - "/dev/video0:/dev/video0"
     command: bash -lc "python3 web_stream_overlay.py"

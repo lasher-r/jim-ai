@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jim UI</title>
+<style>
+  :root {
+    --bg: #0a0a0a; --panel: #121212; --panel2:#1c1c1c; --text:#eee; --muted:#999; --accent:#59f; --line:#222;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+  .main { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; }
+  .left, .right { background: var(--panel); border-radius: 12px; padding: 12px; box-shadow: 0 0 10px #0008; }
+.left { display: grid; grid-template-rows: auto auto auto; gap: 8px; }
+.right { display: flex; flex-direction: column; }
+  .section-title { margin: 0 0 8px 0; font-size: 18px; color: #cdf; letter-spacing:.02em; }
+  .eyes { background: #000; border-radius: 8px; overflow: hidden; position: relative; aspect-ratio: 16 / 9; }
+  .eyes img { position:absolute; inset:0; width:100%; height:100%; object-fit: contain; display:block; }
+  .stats { background: var(--panel2); border-radius: 8px; padding: 10px 12px; overflow:auto; }
+.stats p{display:grid; grid-template-columns:max-content 1fr; gap:12px; margin:6px 0; align-items:center;}
+.stats p strong{color:var(--muted); font-size:18px;}
+
+  .stat-label { color: var(--muted); font-size: 18px; }
+  .stat-value { font-weight: 600; font-size: 32px; }
+  .timers, .weight-calculator { background: #1c1c1c; border-radius: 8px; padding: 12px; flex: 1; margin-bottom: 8px; }
+.weight-calculator table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .clock { font-size: 72px; font-weight: 700; letter-spacing: .04em; }
+  .subtime { color: var(--muted); margin-top: 6px; font-size: 18px; }
+  .timer-row { display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+  .badge { font-size: 14px; padding: 6px 10px; background:#0e203a; color:#a6c8ff; border-radius:999px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid #333; padding: 8px 10px; font-size: 16px; font-variant-numeric: tabular-nums; }
+/* Weight calculator alignment: first 3 columns left, last column right */
+.weight-calculator th, .weight-calculator td { text-align: left; }
+.weight-calculator th:last-child, .weight-calculator td:last-child { text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  footer { background: #111; color: var(--muted); text-align: center; padding: 10px; font-size: 18px; letter-spacing: 0.05em; border-top: 1px solid var(--line); }
+  .slogan { animation: fade 0.6s ease; }
+  @keyframes fade { from {opacity:0; transform: translateY(6px);} to {opacity:1; transform:none;} }
+.slogans { background: var(--panel2); border-radius: 8px; padding: 10px 12px; text-align: center; color: #cfcfcf; font-size: 45px; line-height: 1.2; }
+</style>
+<style id="jim-left-pack">
+  /* Pack rows to the top and stop row1 from stretching */
+  .left{ grid-template-rows: auto auto auto !important; align-content: start !important; }
+  /* Let the eyes box size itself purely by aspect-ratio */
+  .eyes{ max-height: none !important; }
+</style>
+</head>
+<body>
+  <div class="main">
+    <!-- LEFT: Eyes + Stats -->
+    <div class="left">
+      <div class="eyes">
+        <img id="eyes" alt="Live Feed" src="" />
+      </div>
+      <div class="stats">
+	  <h3>Stats</h3>
+	  <p><strong>Current lift:</strong> <span class="stat-value">—</span></p>
+	  <p><strong>Reps:</strong> <span class="stat-value">—</span></p>
+	  <p><strong>Sets:</strong> <span class="stat-value">—</span></p>
+	  <p><strong>Up next:</strong> <span class="stat-value">—</span></p>
+	</div>
+      <div class="slogans"><span id="slogan">Consistency beats intensity.</span></div>
+    </div>
+
+    <!-- RIGHT: Timers + Weight calculator -->
+    <div class="right">
+      <div class="timers">
+        <h3 class="section-title">Timers</h3>
+        <div class="clock" id="clock">--:--</div>
+        <div class="subtime" id="date">—</div>
+        <div class="timer-row"><span>Session</span><span class="badge" id="t-session">00:00:00</span></div>
+        <div class="timer-row"><span>Set</span><span class="badge" id="t-set">00:00</span></div>
+        <div class="timer-row"><span>Rest</span><span class="badge" id="t-rest">00:00</span></div>
+      </div>
+
+      <div class="weight-calculator">
+        <h3 class="section-title">Weight Calculator</h3>
+        <table id="plates-table">
+          <colgroup>
+            <col class="col-a" style="width:7ch;">
+            <col class="col-b" style="width:7ch;">
+            <col class="col-c" style="width:7ch;">
+            <col class="col-per" style="width:auto;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>No 45s</th>
+              <th>+1 45</th>
+              <th>+2 45</th>
+              <th>per side</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer style="display:none"></footer>
+
+<script>
+  // --- 1) Live feed URL (same origin as Flask) ---
+  (function setStream(){
+    const params = new URLSearchParams({
+      mode: (new URLSearchParams(location.search)).get('mode') || 'yolo',
+      w:  '1280', h: '720', fps: '10', skip: '3', q: '70', conf: '0.15', nms: '0.35'
+    });
+    const eyes = document.getElementById('eyes');
+    eyes.src = `${location.origin}/?${params.toString()}`;
+  })();
+
+  // --- 2) Realtime clock (local time on the Nano) ---
+  function pad(n){return n<10?('0'+n):n}
+  function tickClock(){
+    const d = new Date();
+    const hh = d.getHours();
+    const h12 = ((hh+11)%12)+1;
+    const ampm = hh>=12? 'PM':'AM';
+    const mm = pad(d.getMinutes());
+    const ss = pad(d.getSeconds());
+    document.getElementById('clock').textContent = `${h12}:${mm}:${ss} ${ampm}`;
+    document.getElementById('date').textContent = d.toLocaleDateString(undefined, { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+  }
+  tickClock(); setInterval(tickClock, 1000);
+
+  // --- 3) Weight plate calculator (layout like your sheet) ---
+// Column 1 (No 45s): totals achievable with bar (45) and small plates only per side [25,10,5,2.5]
+// Column 2/3 are those totals plus one/two 45s per side (+90 / +180).
+function perSideCombo(total){
+  const bar = 45; let ps = (total - bar)/2; if(ps < -1e-6) return '';
+  const plates = [25,10,5,2.5];
+  let out = [];
+  for(const p of plates){
+    const n = Math.floor((ps + 1e-6)/p);
+    if(n>0){ out.push(n===1? `${p}` : `${p}`.repeat(1)); ps -= n*p; // we'll encode count by repetition below
+      // expand counts as repeated entries joined with -- (e.g., 25--10--5)
+      for(let i=1;i<n;i++) out.push(`${p}`);
+    }
+  }
+  if (Math.abs(ps) > 0.01) return 'n/a';
+  return out.join('--');
+}
+(function fillPlateTable(){
+  const tbody = document.querySelector('#plates-table tbody');
+  const rows = [];
+  // Build a range similar to your sheet (45..315 by 5). Adjust as you like.
+  for(let t=45; t<=130; t+=5){
+    // skip totals that already require a 45 per side in the "No 45s" column (handled by next columns)
+    // We still list all multiples; the per-side string will show small plates only.
+    const per = perSideCombo(t);
+    const plus1 = t + 90; // +1×45 per side
+    const plus2 = t + 180; // +2×45 per side
+    rows.push(`<tr><td>${t}</td><td>${plus1}</td><td>${plus2}</td><td>${per}</td></tr>`);
+  }
+  tbody.innerHTML = rows.join('');
+})();
+
+// --- 4) Slogans rotator ---
+  (function slogans(){
+    const slogans = [
+      "Gym membership: voluntary association only.",
+      "Smash the state, not your form.",
+      "ACAB: All Cops Are Benchable.",
+      "Deadlift the patriarchy.",
+      "Your fascism ends where my range of motion begins.",
+      "Strong arms make better molotovs.",
+      "Curl up, comrades.",
+      "Arms of the proletariat.",
+      "Lift heavy, abolish landlords.",
+      "Commie-core: collective gains, individual pain.",
+      "Biceps for the barricades.",
+      "From each according to their spotter, to each according to their reps.",
+      "Anti-fascist, pro-anabolic.",
+      "Front squats, not fascists.",
+      "The people’s press—bench edition.",
+      "Eat the rich (high in protein).",
+      "Solidarity is my pre-workout.",
+      "Join the resistance. Bring chalk.",
+      "No gods, no masters, no skipped leg days.",
+      "You have nothing to lose but your chains. And maybe your grip.",
+      "Mutual aid means re-racking your weights.",
+      "Workers of the world, lift!",
+      "You can’t spell abolish without abs."
+    ];
+    const el = document.getElementById('slogan');
+    if (!el || slogans.length === 0) return;
+
+    // Fisher–Yates shuffle
+    function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+
+    function randMs(min=150000, max=450000){ // 2.5–7.5 minutes
+      return Math.floor(min + Math.random() * (max - min));
+    }
+
+    let order = slogans.slice();
+    shuffle(order);
+    let idx = -1;
+
+    function showNext(){
+      idx++;
+      if (idx >= order.length){
+        shuffle(order); // new random order every full cycle
+        idx = 0;
+      }
+      el.classList.remove('slogan'); void el.offsetWidth; // restart fade
+      el.textContent = order[idx];
+      el.classList.add('slogan');
+      setTimeout(showNext, randMs());
+    }
+
+    // show something immediately
+    showNext();
+  })();
+</script>
+</body>
+</html>
+

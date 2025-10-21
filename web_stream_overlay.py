@@ -1,7 +1,8 @@
 from collections import deque
 import numpy as np
 import os, time, cv2
-from flask import Flask, Response, request, jsonify, send_file
+from flask import Flask, Response, request, jsonify, send_file, send_from_directory
+import time
 app = Flask(__name__)
 
 from trt_yolo_runtime import TRTDetector
@@ -142,6 +143,16 @@ def contours_compat(th):
 @app.route("/health")
 def health():
     return jsonify(ok=True)
+
+# --- serve the UI ---
+@app.route('/ui')
+def ui():
+    return send_from_directory('/workspace/ui', 'index.html')
+
+# --- server time (epoch seconds) for a true Nano clock ---
+@app.route('/time')
+def time_ep():
+    return jsonify(epoch=int(time.time()))
 
 @app.route("/snapshot")
 def snapshot():
